@@ -1,0 +1,315 @@
+openapi: 3.0.0
+info:
+  title: API для блокировки платежей в Т-Банке
+  description: API for managing payment blocks for clients
+  version: 1.0.0
+servers:
+  - url: https://api.t-bank.com/v1
+    description: T-Bank API production server
+tags:
+  - name: blocks
+    description: Payment Blocks Management
+paths:
+  /clients/{clientId}/blocks:
+    post:
+      summary: Block a client's payments
+      description: Create a new block for a client's payments
+      tags:
+        - blocks
+      parameters:
+        - in: path
+          name: clientId
+          required: true
+          schema:
+            type: string
+          description: Unique identifier of the client
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BlockRequest'
+      responses:
+        '201':
+          description: Block created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Block'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Client not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Client already has an active block of this type
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    get:
+      summary: Get client's block history
+      description: Returns all blocks (active and inactive) for a client
+      tags:
+        - blocks
+      parameters:
+        - in: path
+          name: clientId
+          required: true
+          schema:
+            type: string
+          description: Unique identifier of the client
+        - in: query
+          name: status
+          schema:
+            type: string
+            enum: [active, inactive, all]
+            default: all
+          description: Filter blocks by status
+        - in: query
+          name: blockType
+          schema:
+            type: string
+            enum: [FRAUD_SUSPICION, WRONG_DETAILS]
+          description: Filter blocks by type
+      responses:
+        '200':
+          description: List of blocks for the client
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Block'
+        '404':
+          description: Client not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  
+  /clients/{clientId}/blocks/{blockId}:
+    get:
+      summary: Get block details
+      description: Returns details of a specific block
+      tags:
+        - blocks
+      parameters:
+        - in: path
+          name: clientId
+          required: true
+          schema:
+            type: string
+          description: Unique identifier of the client
+        - in: path
+          name: blockId
+          required: true
+          schema:
+            type: string
+          description: Unique identifier of the block
+      responses:
+        '200':
+          description: Block details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Block'
+        '404':
+          description: Block or client not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  
+  /clients/{clientId}/blocks/{blockId}/unblock:
+    post:
+      summary: Unblock a client's payments
+      description: Deactivate an active block (sets end date to current timestamp)
+      tags:
+        - blocks
+      parameters:
+        - in: path
+          name: clientId
+          required: true
+          schema:
+            type: string
+          description: Unique identifier of the client
+        - in: path
+          name: blockId
+          required: true
+          schema:
+            type: string
+          description: Unique identifier of the block
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UnblockRequest'
+      responses:
+        '200':
+          description: Block deactivated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Block'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Block or client not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Block is already inactive
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  
+  /clients/{clientId}/block-status:
+    get:
+      summary: Check if client has active blocks
+      description: Returns the client's current block status
+      tags:
+        - blocks
+      parameters:
+        - in: path
+          name: clientId
+          required: true
+          schema:
+            type: string
+          description: Unique identifier of the client
+        - in: query
+          name: blockType
+          schema:
+            type: string
+            enum: [FRAUD_SUSPICION, WRONG_DETAILS]
+          description: Filter by block type (optional)
+      responses:
+        '200':
+          description: Client's block status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BlockStatus'
+        '404':
+          description: Client not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+components:
+  schemas:
+    BlockRequest:
+      type: object
+      required:
+        - blockType
+        - reason
+      properties:
+        blockType:
+          type: string
+          enum: [FRAUD_SUSPICION, WRONG_DETAILS]
+          description: Type of block - fraud suspicion or wrong payment details
+        reason:
+          type: string
+          description: Detailed reason for the block
+        expectedResolutionDate:
+          type: string
+          format: date-time
+          description: Expected date when the block might be resolved (optional)
+      
+    UnblockRequest:
+      type: object
+      required:
+        - resolutionNotes
+      properties:
+        resolutionNotes:
+          type: string
+          description: Notes explaining how the issue was resolved
+    
+    Block:
+      type: object
+      properties:
+        blockId:
+          type: string
+          description: Unique identifier for the block
+        clientId:
+          type: string
+          description: Identifier of the blocked client
+        blockType:
+          type: string
+          enum: [FRAUD_SUSPICION, WRONG_DETAILS]
+          description: Type of block
+        reason:
+          type: string
+          description: Detailed reason for the block
+        createdAt:
+          type: string
+          format: date-time
+          description: When the block was created
+        createdBy:
+          type: string
+          description: ID of the user who created the block
+        endedAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: When the block was ended (null if still active)
+        endedBy:
+          type: string
+          nullable: true
+          description: ID of the user who ended the block (null if still active)
+        expectedResolutionDate:
+          type: string
+          format: date-time
+          nullable: true
+          description: Expected date of resolution
+        resolutionNotes:
+          type: string
+          nullable: true
+          description: Notes on how the issue was resolved
+        isActive:
+          type: boolean
+          description: Whether the block is currently active
+    
+    BlockStatus:
+      type: object
+      properties:
+        clientId:
+          type: string
+          description: Identifier of the client
+        isBlocked:
+          type: boolean
+          description: Whether the client has any active blocks
+        activeBlocks:
+          type: array
+          items:
+            $ref: '#/components/schemas/Block'
+          description: List of currently active blocks
+    
+    Error:
+      type: object
+      properties:
+        code:
+          type: string
+          description: Error code
+        message:
+          type: string
+          description: Error message
+        details:
+          type: object
+          description: Additional error details
