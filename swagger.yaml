@@ -16,6 +16,8 @@ paths:
       description: Create a new block for a client's payments
       tags:
         - blocks
+      security:
+        - OAuth2: [write]
       parameters:
         - in: path
           name: clientId
@@ -42,6 +44,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '404':
           description: Client not found
           content:
@@ -59,6 +67,8 @@ paths:
       description: Returns all blocks (active and inactive) for a client
       tags:
         - blocks
+      security:
+        - OAuth2: [read]
       parameters:
         - in: path
           name: clientId
@@ -79,6 +89,18 @@ paths:
             type: string
             enum: [FRAUD_SUSPICION, WRONG_DETAILS]
           description: Filter blocks by type
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 50
+          description: Number of records to return
+        - in: query
+          name: offset
+          schema:
+            type: integer
+            default: 0
+          description: Number of records to skip
       responses:
         '200':
           description: List of blocks for the client
@@ -88,19 +110,27 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/Block'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '404':
           description: Client not found
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
-  
+
   /clients/{clientId}/blocks/{blockId}:
     get:
       summary: Get block details
       description: Returns details of a specific block
       tags:
         - blocks
+      security:
+        - OAuth2: [read]
       parameters:
         - in: path
           name: clientId
@@ -121,19 +151,27 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Block'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '404':
           description: Block or client not found
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
-  
+
   /clients/{clientId}/blocks/{blockId}/unblock:
     post:
       summary: Unblock a client's payments
       description: Deactivate an active block (sets end date to current timestamp)
       tags:
         - blocks
+      security:
+        - OAuth2: [write]
       parameters:
         - in: path
           name: clientId
@@ -166,6 +204,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '404':
           description: Block or client not found
           content:
@@ -178,13 +222,15 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
-  
+
   /clients/{clientId}/block-status:
     get:
       summary: Check if client has active blocks
       description: Returns the client's current block status
       tags:
         - blocks
+      security:
+        - OAuth2: [read]
       parameters:
         - in: path
           name: clientId
@@ -205,6 +251,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/BlockStatus'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '404':
           description: Client not found
           content:
@@ -213,6 +265,17 @@ paths:
                 $ref: '#/components/schemas/Error'
 
 components:
+  securitySchemes:
+    OAuth2:
+      type: oauth2
+      flows:
+        authorizationCode:
+          authorizationUrl: https://api.t-bank.com/oauth/authorize
+          tokenUrl: https://api.t-bank.com/oauth/token
+          scopes:
+            read: Read access
+            write: Write access
+
   schemas:
     BlockRequest:
       type: object
@@ -231,7 +294,7 @@ components:
           type: string
           format: date-time
           description: Expected date when the block might be resolved (optional)
-      
+
     UnblockRequest:
       type: object
       required:
@@ -240,7 +303,7 @@ components:
         resolutionNotes:
           type: string
           description: Notes explaining how the issue was resolved
-    
+
     Block:
       type: object
       properties:
@@ -285,7 +348,7 @@ components:
         isActive:
           type: boolean
           description: Whether the block is currently active
-    
+
     BlockStatus:
       type: object
       properties:
@@ -300,7 +363,7 @@ components:
           items:
             $ref: '#/components/schemas/Block'
           description: List of currently active blocks
-    
+
     Error:
       type: object
       properties:
